@@ -1,7 +1,7 @@
 _schema-version: 3.3.0
 ID: Democap
 version: 1.0.0
-description: "A simple CAPPP project."
+description: "A simple CAPPP projectts."
 parameters:
   enable-parallel-deployments: true
 build-parameters:
