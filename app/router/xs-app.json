@@ -1,0 +1,12 @@
+{
+  "routes": [
+
+     {
+      "source": "^/fin/api/odata/v4/(.*)$",
+      "target": "/odata/v4/$1",
+      "destination": "srv-api",
+      "authenticationType": "none",
+      "csrfProtection": true
+    }
+  ]
+}

@@ -45,20 +45,40 @@ modules:
       - name: Democap-destination
         parameters:
           content-target: true
-      - name: srv-api
+      - name: app-api
       - name: Democap-auth
     parameters:
       content:
         subaccount:
           destinations:
-            - Name: Democap-srv
-              URL: ~{srv-api/srv-url}
+            - Name: Democap-router
+              URL: https://~{app-api/app-uri}
               Authentication: OAuth2UserTokenExchange
               ServiceInstanceName: Democap-auth
               HTML5.DynamicDestination: true
               WebIDEEnabled: true
               WebIDEUsage: odata_gen
           existing_destinations_policy: update
+  - name: Democap
+    type: approuter.nodejs
+    path: app/router
+    parameters:
+      keep-existing-routes: true
+      disk-quota: 256M
+      memory: 256M
+    requires:
+      - name: srv-api
+        group: destinations
+        properties:
+          name: srv-api # must be used in xs-app.json as well
+          url: ~{srv-url}
+          forwardAuthToken: true
+      - name: Democap-auth
+    provides:
+      - name: app-api
+        properties:
+          app-protocol: ${protocol}
+          app-uri: ${default-uri}
 
 resources:
   - name: Democap-auth
@@ -74,6 +94,10 @@ resources:
           credential-types:
             - "binding-secret"
             - "x509"
+          redirect-uris:
+            - https://*~{app-api/app-uri}/**
+    requires:
+      - name: app-api
   - name: Democap-db
     type: com.sap.xs.hdi-container
     parameters:
@@ -85,3 +109,112 @@ resources:
     parameters:
       service: destination
       service-plan: lite
+
+# _schema-version: 3.3.0
+# ID: Democap
+# version: 1.0.0
+# description: "A simple CAP project."
+# parameters:
+#   enable-parallel-deployments: true
+
+# build-parameters:
+#   before-all:
+#     - builder: custom
+#       commands:
+#         - npm ci
+#         - npx cds build --production
+
+# modules:
+#   # --- Service (Node.js) ---
+#   - name: Democap-srv            # STATIC module name to satisfy validator
+#     type: nodejs
+#     path: gen/srv
+#     parameters:
+#       instances: 1
+#       buildpack: nodejs_buildpack
+#       # Optional (if your deployer supports overriding CF app name):
+#       application-name: Democap-srv-${space}
+#       # If your toolchain doesn't support the above, just omit it.
+#     build-parameters:
+#       builder: npm-ci
+#     provides:
+#       - name: srv-api            # STATIC provide name
+#         properties:
+#           srv-url: ${default-url}
+#     requires:
+#       - name: Democap-auth       # STATIC references to resource names
+#       - name: Democap-db
+
+#   # --- HDI Deployer ---
+#   - name: Democap-db-deployer    # STATIC module name
+#     type: hdb
+#     path: gen/db
+#     parameters:
+#       buildpack: nodejs_buildpack
+#       # Optional app name override:
+#       application-name: Democap-db-deployer-${space}
+#     requires:
+#       - name: Democap-db
+
+#   # --- Destination Content (creates subaccount destinations) ---
+#   - name: Democap-destination-content
+#     type: com.sap.application.content
+#     path: .
+#     build-parameters:
+#       no-source: true
+#     requires:
+#       - name: Democap-destination
+#         parameters:
+#           content-target: true
+#       - name: srv-api
+#       - name: Democap-auth
+#     parameters:
+#       content:
+#         subaccount:
+#           destinations:
+#             - Name: Democap-srv-${space}          # UNIQUE per space in subaccount
+#               URL: ~{srv-api/srv-url}
+#               Authentication: OAuth2UserTokenExchange
+#               # Must match the actual CF xsuaa service instance name set below via service-name
+#               ServiceInstanceName: Democap-auth-${space}
+#               HTML5.DynamicDestination: true
+#               WebIDEEnabled: true
+#               WebIDEUsage: odata_gen
+#           existing_destinations_policy: update
+
+# resources:
+#   # --- XSUAA instance ---
+#   - name: Democap-auth           # STATIC resource name for validator
+#     type: org.cloudfoundry.managed-service
+#     parameters:
+#       service: xsuaa
+#       service-plan: application
+#       # The actual CF service instance name (can and should be unique per space)
+#       service-name: Democap-auth-${space}
+#       path: ./xs-security.json
+#       # Free-form config; safe to include ${space} here
+#       config:
+#         xsappname: Democap-auth-${space}    # MUST be unique per subaccount
+#         tenant-mode: dedicated
+#         oauth2-configuration:
+#           credential-types:
+#             - "binding-secret"
+#             - "x509"
+
+#   # --- HANA HDI container ---
+#   - name: Democap-db
+#     type: com.sap.xs.hdi-container
+#     parameters:
+#       service: hana
+#       service-plan: hdi-shared
+#       # Unique CF instance name per space avoids collisions
+#       service-name: Democap-db-${space}
+
+#   # --- Destination service instance ---
+#   - name: Democap-destination
+#     type: org.cloudfoundry.managed-service
+#     parameters:
+#       service: destination
+#       service-plan: lite
+#       # Unique CF instance name per space
+#       service-name: Democap-destination-${space}
