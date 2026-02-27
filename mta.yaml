@@ -49,7 +49,7 @@ modules:
       - name: Democap-auth
     parameters:
       content:
-        subaccount:
+        instance:
           destinations:
             - Name: Democap-router
               URL: https://~{app-api/app-uri}
